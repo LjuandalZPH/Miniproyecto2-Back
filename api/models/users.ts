@@ -1,21 +1,57 @@
-// api/models/user.ts
+/**
+ * @fileoverview Modelo de usuario para MongoDB usando Mongoose.
+ * Incluye validaciones de email y contraseña, así como encriptación de contraseña,
+ * y campos para recuperación de contraseña.
+ * 
+ * @module api/models/user
+ */
+
 import mongoose, { Schema, Document } from "mongoose";
 import bcrypt from "bcrypt";
 
+/**
+ * Interfaz para el documento de usuario en MongoDB.
+ * @interface IUser
+ * @property {string} firstName - Nombre del usuario
+ * @property {string} lastName - Apellido del usuario
+ * @property {number} age - Edad del usuario
+ * @property {string} email - Email del usuario
+ * @property {string} password - Contraseña encriptada del usuario
+ * @property {string} [resetPasswordToken] - Token para recuperación de contraseña
+ * @property {Date} [resetPasswordExpires] - Fecha de expiración del token
+ * @property {function} comparePassword - Método para comparar contraseñas
+ */
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
   age: number;
   email: string;
   password: string;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   comparePassword: (candidatePassword: string) => Promise<boolean>;
 }
-// security requirements, checks for a valid email definition
+
+/**
+ * Expresión regular para validar el formato de email.
+ * Ejemplo válido: usuario@dominio.com
+ * @constant
+ */
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// checks that the password uses ATLEAST 1 number, 1 Capital letter, 1 letter, 1 especial character (@/.&$+-) and its 8 characters or longer
+
+/**
+ * Expresión regular para validar la contraseña.
+ * Requiere al menos una minúscula, una mayúscula, un número, un caracter especial y mínimo 8 caracteres.
+ * @constant
+ */
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-//format for user
+
+/**
+ * Esquema Mongoose para el usuario, con validaciones y timestamps.
+ * Incluye campos para recuperación de contraseña.
+ * @constant
+ */
 const UserSchema: Schema<IUser> = new Schema<IUser>(
   {
     firstName: { type: String, required: true, trim: true },
@@ -33,11 +69,17 @@ const UserSchema: Schema<IUser> = new Schema<IUser>(
       required: true,
       match: [passwordRegex, "Password does not meet security requirements"],
     },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );
 
-// password encription
+/**
+ * Middleware de Mongoose que encripta la contraseña antes de guardar el usuario.
+ * Solo encripta si la contraseña ha sido modificada.
+ * @function
+ */
 UserSchema.pre("save", async function (next) {
   const user = this as IUser;
 
@@ -52,7 +94,11 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
-// validate encription with password
+/**
+ * Método del esquema para comparar una contraseña ingresada con la almacenada.
+ * @param {string} candidatePassword - Contraseña a comparar
+ * @returns {Promise<boolean>} true si la contraseña coincide, false si no
+ */
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
@@ -60,4 +106,3 @@ UserSchema.methods.comparePassword = async function (
 };
 
 export default mongoose.model<IUser>("User", UserSchema);
-

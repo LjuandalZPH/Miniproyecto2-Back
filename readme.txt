@@ -7,6 +7,8 @@ npm i
 npm install --save-dev ts-node-dev
 npm install jsonwebtoken bcrypt dotenv
 npm install --save-dev @types/jsonwebtoken
+npm install nodemailer
+npm install --save-dev @types/nodemailer
 
 to run 
 

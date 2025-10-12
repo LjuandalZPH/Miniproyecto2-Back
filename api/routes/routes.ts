@@ -4,6 +4,8 @@ import {
   getUsers,
   updateUser,
   deleteUser,
+  recoverPassword,
+  resetPassword
 } from "../controller/user.controller";
 import { loginUser } from "../controller/auth.controller";
 import { verifyToken } from "../middlewares/auth";
@@ -29,5 +31,8 @@ router.get("/profile", verifyToken, (req, res) => {
     user: (req as any).user, 
   });
 });
+//recover pass
+router.post("/users/recover-password", recoverPassword);
+router.post("/users/reset-password", resetPassword);
 
 export default router;
