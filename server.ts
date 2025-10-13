@@ -1,7 +1,14 @@
+/**
+ * @fileoverview Punto de entrada principal del servidor Express.
+ * Configura middlewares, rutas y realiza la conexión a la base de datos.
+ * 
+ * @module server
+ */
+
 import express from "express";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 import router from "./api/routes/routes";
+import connectDB from "./api/config/database"; // Importa la función de conexión
 
 dotenv.config();
 
@@ -21,19 +28,26 @@ app.use(cors({
  */
 app.use(express.json());
 
-// Rutas principales
+/**
+ * Ruta principal de prueba.
+ */
 app.get("/", (req, res) => {
   res.send("Everything its working, Rejoice PEASANTS");
 });
+
+/**
+ * Rutas de la API agrupadas bajo /api.
+ */
 app.use("/api", router);
 
-// Conexión a MongoDB Atlas
-mongoose
-  .connect(process.env.MONGO_URI || "")
-  .then(() => console.log("Connected to MongoDB Atlas"))
-  .catch((err) => console.error("Couldnt connect to MongoDB:", err));
+/**
+ * Conexión a la base de datos MongoDB Atlas.
+ */
+connectDB();
 
-// Iniciar servidor
+/**
+ * Inicia el servidor en el puerto definido.
+ */
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
