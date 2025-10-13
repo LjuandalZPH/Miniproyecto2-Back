@@ -8,7 +8,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware para parsear JSON
+import cors from "cors";
+
+// allow petitions from frontend
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  credentials: true
+}));
+
+/**
+ * Middleware para parsear JSON en las peticiones.
+ */
 app.use(express.json());
 
 // Rutas principales
