@@ -1,24 +1,46 @@
-// api/config/database.ts
-import mongoose from "mongoose";
-import dotenv from "dotenv";
+/**
+ * @fileoverview Configuración y conexión a la base de datos MongoDB usando Mongoose.
+ * Este módulo exporta una función para conectar a MongoDB Atlas y gestiona el cierre limpio de la conexión.
+ * 
+ * @module api/config/database
+ */
 
-dotenv.config();
+import mongoose from "mongoose";
 
 /**
- * Connects to MongoDB Atlas using the connection string stored in the .env file.
+ * Conecta la aplicación a la base de datos MongoDB Atlas usando la URI definida en las variables de entorno.
+ * Si la variable de entorno MONGO_URI no está definida, termina el proceso con error.
+ * 
+ * @async
+ * @function connectDB
+ * @returns {Promise<void>} Promesa que se resuelve cuando se establece la conexión o se rechaza si hay error.
+ * 
+ * @throws Termina el proceso si no puede conectar a la base de datos.
  */
-export const connectDB = async (): Promise<void> => {
+const connectDB = async (): Promise<void> => {
+  const mongoURI = process.env.MONGO_URI;
+  if (!mongoURI) {
+    console.error("Error: MONGO_URI no está definida en las variables de entorno.");
+    process.exit(1);
+  }
+
   try {
-    const mongoURI = process.env.MONGO_URI as string;
-
-    if (!mongoURI) {
-      throw new Error("MONGO_URI missing or implemented incorrectly");
-    }
-
     await mongoose.connect(mongoURI);
-    console.log("Connection to BD succesful");
-  } catch (error) {
-    console.error("Error connecting to BD : ", error);
+    console.log("Conectado a MongoDB Atlas");
+  } catch (error: any) {
+    console.error("Error al conectar a MongoDB Atlas:", error.message);
     process.exit(1);
   }
 };
+
+/**
+ * Middleware para cerrar la conexión a MongoDB cuando la aplicación recibe SIGINT (Ctrl+C).
+ * Útil para liberar recursos correctamente al finalizar la aplicación.
+ */
+process.on("SIGINT", async () => {
+  await mongoose.connection.close();
+  console.log("Conexión a MongoDB cerrada por SIGINT");
+  process.exit(0);
+});
+
+export default connectDB;
