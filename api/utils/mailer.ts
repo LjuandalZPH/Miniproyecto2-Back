@@ -14,7 +14,7 @@ export async function sendRecoveryEmail(email: string, token: string) {
     },
   });
 
-  const recoveryUrl = `http://localhost:3000/recover-password?token=${token}`; // Cambia URL según tu frontend
+  const recoveryUrl = `http://localhost:5173/change-password?token=${token}`; // Cambia URL según tu frontend
 
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
