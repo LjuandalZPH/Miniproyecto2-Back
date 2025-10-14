@@ -162,7 +162,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     return;
   }
 
-  user.password = newPassword; // El pre-save encripta la nueva contraseña
+  user.password = newPassword;
+  user.markModified("password"); 
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();
