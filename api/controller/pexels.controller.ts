@@ -16,7 +16,7 @@ export async function getPhotos(req: Request, res: Response) {
     const locale = (req.query.locale as string) || undefined;
 
     const data = await searchPhotos({ query, page, per_page, orientation, size, color, locale });
-    return res.json(data);
+    return res.json({ photos: data.photos });
   } catch (err) {
     console.error('[Pexels Photos] Error:', err);
     return res.status(502).json({ error: 'Error al obtener fotos desde Pexels' });
