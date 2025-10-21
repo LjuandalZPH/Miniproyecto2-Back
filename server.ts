@@ -4,9 +4,8 @@
  * 
  * @module server
  */
-
-import express from "express";
 import dotenv from "dotenv";
+import express from "express";
 import router from "./api/routes/routes";
 import connectDB from "./api/config/database"; // Importa la función de conexión
 
@@ -51,3 +50,4 @@ connectDB();
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+	
