@@ -1,9 +1,10 @@
-// controllers/movie.controller.ts
 import { Request, Response } from "express";
-import Movie from "../models/movies"; 
+import Movie from "../models/movies";
 import axios from "axios";
 
-// Crear movie manual
+/**
+ * Create a new movie from request body.
+ */
 export const createMovie = async (req: Request, res: Response) => {
   try {
     const movie = new Movie(req.body);
@@ -14,17 +15,31 @@ export const createMovie = async (req: Request, res: Response) => {
   }
 };
 
-// Listar movies
+/**
+ * Get movies list, optionally filtered by "search" query param.
+ * - Matches partial title (case-insensitive).
+ * Example: GET /api/movies?search=man
+ */
 export const getMovies = async (req: Request, res: Response) => {
   try {
-    const movies = await Movie.find();
+    const { search } = req.query as { search?: string };
+    const filter: Record<string, any> = {};
+
+    // Apply partial, case-insensitive match on "title" when search is present
+    if (search && search.trim()) {
+      filter.title = { $regex: search.trim(), $options: "i" };
+    }
+
+    const movies = await Movie.find(filter);
     res.json(movies);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Obtener por id
+/**
+ * Get a single movie by its ID.
+ */
 export const getMovieById = async (req: Request, res: Response) => {
   try {
     const movie = await Movie.findById(req.params.id);
@@ -35,10 +50,15 @@ export const getMovieById = async (req: Request, res: Response) => {
   }
 };
 
-// Actualizar movie completo (PUT)
+/**
+ * Update a movie (full update).
+ */
 export const updateMovie = async (req: Request, res: Response) => {
   try {
-    const updated = await Movie.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const updated = await Movie.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
     if (!updated) return res.status(404).json({ error: "Movie not found" });
     res.json(updated);
   } catch (err: any) {
@@ -46,7 +66,9 @@ export const updateMovie = async (req: Request, res: Response) => {
   }
 };
 
-// Borrar movie
+/**
+ * Delete a movie by ID.
+ */
 export const deleteMovie = async (req: Request, res: Response) => {
   try {
     const deleted = await Movie.findByIdAndDelete(req.params.id);
@@ -57,7 +79,9 @@ export const deleteMovie = async (req: Request, res: Response) => {
   }
 };
 
-// Toggle favorito (PATCH /:id/favorite)
+/**
+ * Toggle "favorite" flag for a movie.
+ */
 export const toggleFavorite = async (req: Request, res: Response) => {
   try {
     const movie = await Movie.findById(req.params.id);
@@ -70,19 +94,26 @@ export const toggleFavorite = async (req: Request, res: Response) => {
   }
 };
 
-// Añadir comentario (POST /:id/comments)
+/**
+ * Add a new comment to a movie and recalculate average rating.
+ */
 export const addComment = async (req: Request, res: Response) => {
   try {
     const { user, text, rating } = req.body;
-    if (!user || !text) return res.status(400).json({ error: "user and text required" });
+    if (!user || !text) {
+      return res.status(400).json({ error: "user and text required" });
+    }
 
     const movie = await Movie.findById(req.params.id);
     if (!movie) return res.status(404).json({ error: "Movie not found" });
 
     movie.comments.push({ user, text, rating: rating ?? 3 });
-    // opcional: recalcular rating promedio
+
+    // Recalculate average rating based on comments
     if (movie.comments.length > 0) {
-      const avg = movie.comments.reduce((sum: any, c: any) => sum + (c.rating || 0), 0) / movie.comments.length;
+      const avg =
+        movie.comments.reduce((sum: number, c: any) => sum + (c.rating || 0), 0) /
+        movie.comments.length;
       movie.rating = parseFloat(avg.toFixed(2));
     }
 
@@ -93,7 +124,9 @@ export const addComment = async (req: Request, res: Response) => {
   }
 };
 
-// Importar desde Pexels (POST /api/movies/import/pexels)
+/**
+ * Import movies from Pexels API and store them if not duplicated.
+ */
 export const importFromPexels = async (req: Request, res: Response) => {
   try {
     const { query = "movie trailer", per_page = 10 } = req.body || {};
@@ -102,21 +135,23 @@ export const importFromPexels = async (req: Request, res: Response) => {
 
     const resp = await axios.get("https://api.pexels.com/videos/search", {
       headers: { Authorization: API_KEY },
-      params: { query, per_page }
+      params: { query, per_page },
     });
 
     const videos = resp.data.videos || [];
-
     const imported: any[] = [];
+
     for (const v of videos) {
-      // toma la primera variante de video disponible y una imagen
-      const videoFile = v.video_files && v.video_files.length ? v.video_files[0].link : null;
-      const image = v.video_pictures && v.video_pictures.length ? v.video_pictures[0].picture : null;
+      // Pick the first available video file and picture
+      const videoFile =
+        v.video_files && v.video_files.length ? v.video_files[0].link : null;
+      const image =
+        v.video_pictures && v.video_pictures.length ? v.video_pictures[0].picture : null;
       const title = v.user?.name || v.id?.toString() || "Pexels video";
 
       if (!videoFile) continue;
 
-      // evita duplicados por videoUrl
+      // Avoid duplicates by videoUrl
       const exists = await Movie.findOne({ videoUrl: videoFile });
       if (exists) continue;
 
@@ -126,9 +161,9 @@ export const importFromPexels = async (req: Request, res: Response) => {
         author: v.user?.name || "Pexels",
         rating: 0,
         videoUrl: videoFile,
-        image: image,
+        image,
         favorite: false,
-        comments: []
+        comments: [],
       });
 
       await doc.save();
