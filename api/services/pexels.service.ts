@@ -173,4 +173,6 @@ export async function searchVideos(params: {
     console.error("Error Pexels videos:", err.message);
     throw new Error("Error al obtener videos desde Pexels");
   }
+
 }
+
