@@ -11,7 +11,9 @@ import { loginUser } from "../controller/auth.controller";
 import { verifyToken } from "../middlewares/auth";
 import User from "../models/users"; 
 import pexelsRouter from "./pexels.routes";
+
 import moviesRouter from "./movies.routes";
+
 
 const router = express.Router();
 
@@ -40,10 +42,12 @@ router.get("/profile", verifyToken, async (req, res) => {
 router.post("/users/recover-password", recoverPassword);
 router.post("/users/reset-password", resetPassword);
 
+
 // Rutas de Pexels
 router.use("/pexels", pexelsRouter);
 
 //ruta movies
 router.use("/movies", moviesRouter);
+
 
 export default router;
