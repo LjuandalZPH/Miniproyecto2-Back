@@ -1,8 +1,8 @@
 /**
  * @fileoverview Modelo de usuario para MongoDB usando Mongoose.
  * Incluye validaciones de email y contraseña, así como encriptación de contraseña,
- * y campos para recuperación de contraseña.
- * 
+ * campos para recuperación de contraseña y lista de películas favoritas.
+ *
  * @module api/models/user
  */
 
@@ -11,7 +11,7 @@ import bcrypt from "bcrypt";
 
 /**
  * Interfaz para el documento de usuario en MongoDB.
- * @interface IUser
+ *  * @interface IUser
  * @property {string} firstName - Nombre del usuario
  * @property {string} lastName - Apellido del usuario
  * @property {number} age - Edad del usuario
@@ -20,7 +20,9 @@ import bcrypt from "bcrypt";
  * @property {string} [resetPasswordToken] - Token para recuperación de contraseña
  * @property {Date} [resetPasswordExpires] - Fecha de expiración del token
  * @property {function} comparePassword - Método para comparar contraseñas
+
  */
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -29,28 +31,27 @@ export interface IUser extends Document {
   password: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  favorites: mongoose.Types.ObjectId[];
   comparePassword: (candidatePassword: string) => Promise<boolean>;
 }
 
 /**
- * Expresión regular para validar el formato de email.
- * Ejemplo válido: usuario@dominio.com
- * @constant
+ * Validaciones de formato.
  */
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 
 /**
  * Expresión regular para validar la contraseña.
  * Requiere al menos una minúscula, una mayúscula, un número, un caracter especial y mínimo 8 caracteres.
  * @constant
  */
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
 
 /**
- * Esquema Mongoose para el usuario, con validaciones y timestamps.
- * Incluye campos para recuperación de contraseña.
- * @constant
+ * Esquema Mongoose para el usuario.
  */
 const UserSchema: Schema<IUser> = new Schema<IUser>(
   {
@@ -71,18 +72,23 @@ const UserSchema: Schema<IUser> = new Schema<IUser>(
     },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+
+    favorites: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Movie",
+        default: [],
+      },
+    ],
   },
   { timestamps: true }
 );
 
 /**
- * Middleware de Mongoose que encripta la contraseña antes de guardar el usuario.
- * Solo encripta si la contraseña ha sido modificada.
- * @function
+ * Middleware para encriptar la contraseña antes de guardar.
  */
 UserSchema.pre("save", async function (next) {
   const user = this as IUser;
-
   if (!user.isModified("password")) return next();
 
   try {
@@ -95,9 +101,7 @@ UserSchema.pre("save", async function (next) {
 });
 
 /**
- * Método del esquema para comparar una contraseña ingresada con la almacenada.
- * @param {string} candidatePassword - Contraseña a comparar
- * @returns {Promise<boolean>} true si la contraseña coincide, false si no
+ * Método para comparar contraseñas.
  */
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string

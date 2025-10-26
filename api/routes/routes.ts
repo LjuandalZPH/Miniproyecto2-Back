@@ -5,27 +5,34 @@ import {
   updateUser,
   deleteUser,
   recoverPassword,
-  resetPassword
+  resetPassword,
+  toggleFavorite,
+  getFavorites
 } from "../controller/user.controller";
 import { loginUser } from "../controller/auth.controller";
 import { verifyToken } from "../middlewares/auth";
-import User from "../models/users"; 
+import User from "../models/users";
 import pexelsRouter from "./pexels.routes";
-
 import moviesRouter from "./movies.routes";
-
 
 const router = express.Router();
 
-// User CRUD endpoints
+/* -----------------------------------------
+   👤 CRUD DE USUARIOS
+----------------------------------------- */
 router.post("/users", createUser);
 router.get("/users", getUsers);
 router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 
-// Auth endpoints
-router.post("/login", loginUser); 
+/* -----------------------------------------
+   🔐 AUTENTICACIÓN
+----------------------------------------- */
+router.post("/login", loginUser);
 
+/* -----------------------------------------
+   🧩 PERFIL (Requiere token JWT)
+----------------------------------------- */
 router.get("/profile", verifyToken, async (req, res) => {
   try {
     const userId = (req as any).user.id;
@@ -38,16 +45,28 @@ router.get("/profile", verifyToken, async (req, res) => {
   }
 });
 
-// Recover password
+/* -----------------------------------------
+   🔑 RECUPERACIÓN DE CONTRASEÑA
+----------------------------------------- */
 router.post("/users/recover-password", recoverPassword);
 router.post("/users/reset-password", resetPassword);
 
+/* -----------------------------------------
+   ❤️ FAVORITOS DE USUARIO
+----------------------------------------- */
+// Añadir o eliminar película de favoritos
+router.patch("/users/:userId/favorites/:movieId", verifyToken, toggleFavorite);
 
-// Rutas de Pexels
+// Obtener todas las películas favoritas del usuario
+router.get("/users/:userId/favorites", verifyToken, getFavorites);
+
+/* -----------------------------------------
+   🎬 RUTAS DE OTROS MÓDULOS
+----------------------------------------- */
 router.use("/pexels", pexelsRouter);
 
 //ruta movies
 router.use("/movies", moviesRouter);
 
-
 export default router;
+
