@@ -6,8 +6,8 @@ import {
   getMovieById,
   updateMovie,
   deleteMovie,
-  toggleFavorite,
   addComment,
+  deleteComment,
   importFromPexels
 } from "../controller/movie.controller";
 
@@ -24,7 +24,7 @@ router.put("/:id", updateMovie);
 router.delete("/:id", deleteMovie);
 
 
-router.patch("/:id/favorite", toggleFavorite);
 router.post("/:id/comments", addComment);
+router.delete("/:id/comments/:commentId", deleteComment);
 
 export default router;

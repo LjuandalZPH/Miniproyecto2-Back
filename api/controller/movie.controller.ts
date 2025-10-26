@@ -79,20 +79,7 @@ export const deleteMovie = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Toggle "favorite" flag for a movie.
- */
-export const toggleFavorite = async (req: Request, res: Response) => {
-  try {
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) return res.status(404).json({ error: "Movie not found" });
-    movie.favorite = !movie.favorite;
-    await movie.save();
-    res.json({ message: "Favorite toggled", favorite: movie.favorite });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+
 
 /**
  * Add a new comment to a movie and recalculate average rating.
@@ -121,6 +108,51 @@ export const addComment = async (req: Request, res: Response) => {
     res.status(201).json(movie);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Delete a comment from a movie by comment id and recalculate average rating.
+ */
+export const deleteComment = async (req: Request, res: Response) => {
+  try {
+    const { id, commentId } = req.params;
+
+    const movie = await Movie.findById(id);
+    if (!movie) return res.status(404).json({ error: "Movie not found" });
+
+    // Find the comment - works whether comments are subdocs or plain objects
+    const exists = (movie as any).comments.find((c: any) => {
+      // support both `c._id` (ObjectId) and `c.id` or string id
+      const cid = c?._id?.toString?.() ?? c?.id ?? c;
+      return cid === commentId;
+    });
+
+    if (!exists) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+
+    // Remove the comment(s) with matching id
+    (movie as any).comments = (movie as any).comments.filter((c: any) => {
+      const cid = c?._id?.toString?.() ?? c?.id ?? c;
+      return cid !== commentId;
+    });
+
+    // Recalculate average rating after removal
+    if ((movie as any).comments.length > 0) {
+      const avg =
+        (movie as any).comments.reduce((sum: number, c: any) => sum + (c.rating || 0), 0) /
+        (movie as any).comments.length;
+      movie.rating = parseFloat(avg.toFixed(2));
+    } else {
+      movie.rating = 0;
+    }
+
+    await movie.save();
+    res.json({ message: "Comment deleted", movie });
+  } catch (err: any) {
+    console.error("deleteComment error:", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
   }
 };
 
