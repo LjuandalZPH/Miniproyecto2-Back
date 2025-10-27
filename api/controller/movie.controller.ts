@@ -86,73 +86,86 @@ export const deleteMovie = async (req: Request, res: Response) => {
  */
 export const addComment = async (req: Request, res: Response) => {
   try {
+    const { id } = req.params;
     const { user, text, rating } = req.body;
+
     if (!user || !text) {
-      return res.status(400).json({ error: "user and text required" });
+      return res.status(400).json({ error: "User and text are required." });
     }
 
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) return res.status(404).json({ error: "Movie not found" });
-
-    movie.comments.push({ user, text, rating: rating ?? 3 });
-
-    // Recalculate average rating based on comments
-    if (movie.comments.length > 0) {
-      const avg =
-        movie.comments.reduce((sum: number, c: any) => sum + (c.rating || 0), 0) /
-        movie.comments.length;
-      movie.rating = parseFloat(avg.toFixed(2));
+    const movie = await Movie.findById(id);
+    if (!movie) {
+      return res.status(404).json({ error: "Movie not found." });
     }
+
+    // ✅ Add new comment safely
+    movie.comments.push({
+      user,
+      text,
+      rating: Math.max(1, Math.min(5, Number(rating) || 3)), // clamps between 1 and 5
+    });
+
+    // ✅ Recalculate average
+    const avg =
+      movie.comments.reduce((sum, c) => sum + (c.rating || 0), 0) /
+      movie.comments.length;
+
+    movie.rating = Number(avg.toFixed(2));
 
     await movie.save();
-    res.status(201).json(movie);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+
+    return res.status(201).json(movie);
+  } catch (error: any) {
+    console.error("Error adding comment:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
   }
 };
 
 /**
- * Delete a comment from a movie by comment id and recalculate average rating.
+ * Delete a comment by id and recalculate global rating.
  */
+
 export const deleteComment = async (req: Request, res: Response) => {
   try {
     const { id, commentId } = req.params;
 
     const movie = await Movie.findById(id);
-    if (!movie) return res.status(404).json({ error: "Movie not found" });
-
-    // Find the comment - works whether comments are subdocs or plain objects
-    const exists = (movie as any).comments.find((c: any) => {
-      // support both `c._id` (ObjectId) and `c.id` or string id
-      const cid = c?._id?.toString?.() ?? c?.id ?? c;
-      return cid === commentId;
-    });
-
-    if (!exists) {
-      return res.status(404).json({ error: "Comment not found" });
+    if (!movie) {
+      return res.status(404).json({ error: "Movie not found." });
     }
 
-    // Remove the comment(s) with matching id
-    (movie as any).comments = (movie as any).comments.filter((c: any) => {
-      const cid = c?._id?.toString?.() ?? c?.id ?? c;
-      return cid !== commentId;
-    });
+    // ✅ Buscar comentario antes de eliminarlo (para saber si existe)
+    const comment = movie.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: "Comment not found." });
+    }
 
-    // Recalculate average rating after removal
-    if ((movie as any).comments.length > 0) {
-      const avg =
-        (movie as any).comments.reduce((sum: number, c: any) => sum + (c.rating || 0), 0) /
-        (movie as any).comments.length;
-      movie.rating = parseFloat(avg.toFixed(2));
+    // ✅ Eliminar comentario de forma segura usando .pull()
+    movie.comments.pull(commentId);
+
+    // ✅ Recalcular el promedio del rating global
+    if (movie.comments.length > 0) {
+      const total = movie.comments.reduce(
+        (sum, c: any) => sum + (c.rating || 0),
+        0
+      );
+      const avg = total / movie.comments.length;
+      movie.rating = Number(avg.toFixed(2));
     } else {
       movie.rating = 0;
     }
 
     await movie.save();
-    res.json({ message: "Comment deleted", movie });
-  } catch (err: any) {
-    console.error("deleteComment error:", err);
-    res.status(500).json({ error: err.message || "Internal server error" });
+
+    return res.status(200).json({
+      message: "Comment deleted successfully",
+      movie,
+    });
+  } catch (error: any) {
+    console.error("Error deleting comment:", error);
+    return res.status(500).json({
+      error: error.message || "Internal server error",
+    });
   }
 };
 
