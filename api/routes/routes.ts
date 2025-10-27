@@ -1,3 +1,9 @@
+/**
+ * Root API router.
+ * Mounts domain routes (users, auth, movies), integrations (Pexels),
+ * and utilities (auto subtitles).
+ */
+
 import express from "express";
 import {
   createUser,
@@ -14,11 +20,12 @@ import { verifyToken } from "../middlewares/auth";
 import User from "../models/users";
 import pexelsRouter from "./pexels.routes";
 import moviesRouter from "./movies.routes";
+import autoSubtitlesRouter from "./autoSubtitles.routes";
 
 const router = express.Router();
 
 /* -----------------------------------------
-   👤 CRUD DE USUARIOS
+   Users CRUD
 ----------------------------------------- */
 router.post("/users", createUser);
 router.get("/users", getUsers);
@@ -26,12 +33,12 @@ router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 
 /* -----------------------------------------
-   🔐 AUTENTICACIÓN
+   Authentication
 ----------------------------------------- */
 router.post("/login", loginUser);
 
 /* -----------------------------------------
-   🧩 PERFIL (Requiere token JWT)
+   Profile (Requires JWT)
 ----------------------------------------- */
 router.get("/profile", verifyToken, async (req, res) => {
   try {
@@ -46,27 +53,26 @@ router.get("/profile", verifyToken, async (req, res) => {
 });
 
 /* -----------------------------------------
-   🔑 RECUPERACIÓN DE CONTRASEÑA
+   Password Recovery
 ----------------------------------------- */
 router.post("/users/recover-password", recoverPassword);
 router.post("/users/reset-password", resetPassword);
 
 /* -----------------------------------------
-   ❤️ FAVORITOS DE USUARIO
+   User Favorites
 ----------------------------------------- */
-// Añadir o eliminar película de favoritos
 router.patch("/users/:userId/favorites/:movieId", verifyToken, toggleFavorite);
-
-// Obtener todas las películas favoritas del usuario
 router.get("/users/:userId/favorites", verifyToken, getFavorites);
 
 /* -----------------------------------------
-   🎬 RUTAS DE OTROS MÓDULOS
+   External/Feature Routers
 ----------------------------------------- */
 router.use("/pexels", pexelsRouter);
-
-//ruta movies
 router.use("/movies", moviesRouter);
 
-export default router;
+/* -----------------------------------------
+   Subtitles (auto-generation endpoints)
+----------------------------------------- */
+router.use("/subtitles", autoSubtitlesRouter);
 
+export default router;

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Movie from "../models/movies";
 import axios from "axios";
+import { buildSubtitlesForResponse } from "../utils/subtitles.util";
 
 /**
  * Create a new movie from request body.
@@ -39,11 +40,24 @@ export const getMovies = async (req: Request, res: Response) => {
 
 /**
  * Get a single movie by its ID.
+ * Opción B: Inyecta "subtitles" si existen .vtt en /subtitles, sin persistir en BD.
  */
 export const getMovieById = async (req: Request, res: Response) => {
   try {
-    const movie = await Movie.findById(req.params.id);
+    // Usamos .lean() para obtener un objeto plano y poder añadir campos no definidos en el schema
+    const movie = await Movie.findById(req.params.id).lean();
     if (!movie) return res.status(404).json({ error: "Movie not found" });
+
+    const hasSubtitles =
+      Array.isArray((movie as any).subtitles) && (movie as any).subtitles.length > 0;
+
+    if (!hasSubtitles) {
+      const subs = buildSubtitlesForResponse(String(movie._id));
+      if (subs.length > 0) {
+        (movie as any).subtitles = subs; // inyección en la respuesta (no se guarda en BD)
+      }
+    }
+
     res.json(movie);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -78,8 +92,6 @@ export const deleteMovie = async (req: Request, res: Response) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
 
 /**
  * Add a new comment to a movie and recalculate average rating.
