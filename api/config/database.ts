@@ -1,45 +1,56 @@
 /**
- * @fileoverview Configuración y conexión a la base de datos MongoDB usando Mongoose.
- * Este módulo exporta una función para conectar a MongoDB Atlas y gestiona el cierre limpio de la conexión.
- * 
- * @module api/config/database
+ * @fileoverview Database connection utilities for the application.
+ *
+ * This module provides a single function to connect to a MongoDB Atlas
+ * instance using Mongoose. It expects the connection URI to be provided via
+ * the environment variable `MONGO_URI`. The module also ensures a clean
+ * shutdown of the Mongoose connection on process termination (SIGINT).
+ *
+ * Module: api/config/database
  */
 
 import mongoose from "mongoose";
 
 /**
- * Conecta la aplicación a la base de datos MongoDB Atlas usando la URI definida en las variables de entorno.
- * Si la variable de entorno MONGO_URI no está definida, termina el proceso con error.
- * 
+ * Connects to MongoDB Atlas using the `MONGO_URI` environment variable.
+ *
+ * Behavior and contract:
+ * - Reads the connection URI from `process.env.MONGO_URI`.
+ * - If `MONGO_URI` is not set, logs an error and exits the process with code 1.
+ * - Attempts to connect with Mongoose and logs a success message on connect.
+ * - On connection error, logs the error message and exits the process with code 1.
+ *
  * @async
  * @function connectDB
- * @returns {Promise<void>} Promesa que se resuelve cuando se establece la conexión o se rechaza si hay error.
- * 
- * @throws Termina el proceso si no puede conectar a la base de datos.
+ * @returns {Promise<void>} Resolves when the connection is successfully established.
+ * @throws Will terminate the process with exit code 1 if the URI is missing or the connection fails.
  */
 const connectDB = async (): Promise<void> => {
   const mongoURI = process.env.MONGO_URI;
   if (!mongoURI) {
-    console.error("Error: MONGO_URI no está definida en las variables de entorno.");
+    console.error("Error: MONGO_URI is not defined in environment variables.");
     process.exit(1);
   }
 
   try {
     await mongoose.connect(mongoURI);
-    console.log("Conectado a MongoDB Atlas");
+    console.log("Connected to MongoDB Atlas");
   } catch (error: any) {
-    console.error("Error al conectar a MongoDB Atlas:", error.message);
+    console.error("Error connecting to MongoDB Atlas:", error.message);
     process.exit(1);
   }
 };
 
 /**
- * Middleware para cerrar la conexión a MongoDB cuando la aplicación recibe SIGINT (Ctrl+C).
- * Útil para liberar recursos correctamente al finalizar la aplicación.
+ * Handle SIGINT (Ctrl+C) to close the Mongoose connection gracefully.
+ *
+ * This listener closes the active Mongoose connection and then exits the
+ * process with code 0. It ensures resources are released when the
+ * application is interrupted from the terminal.
  */
 process.on("SIGINT", async () => {
   await mongoose.connection.close();
-  console.log("Conexión a MongoDB cerrada por SIGINT");
+  console.log("MongoDB connection closed due to SIGINT");
   process.exit(0);
 });
 

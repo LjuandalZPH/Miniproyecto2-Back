@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Movie from "../models/movies";
 import axios from "axios";
+import { buildSubtitlesForResponse } from "../utils/subtitles.util";
 
 /**
  * Create a new movie from request body.
@@ -39,11 +40,24 @@ export const getMovies = async (req: Request, res: Response) => {
 
 /**
  * Get a single movie by its ID.
+ * Opción B: Inyecta "subtitles" si existen .vtt en /subtitles, sin persistir en BD.
  */
 export const getMovieById = async (req: Request, res: Response) => {
   try {
-    const movie = await Movie.findById(req.params.id);
+    // Usamos .lean() para obtener un objeto plano y poder añadir campos no definidos en el schema
+    const movie = await Movie.findById(req.params.id).lean();
     if (!movie) return res.status(404).json({ error: "Movie not found" });
+
+    const hasSubtitles =
+      Array.isArray((movie as any).subtitles) && (movie as any).subtitles.length > 0;
+
+    if (!hasSubtitles) {
+      const subs = buildSubtitlesForResponse(String(movie._id));
+      if (subs.length > 0) {
+        (movie as any).subtitles = subs; // inyección en la respuesta (no se guarda en BD)
+      }
+    }
+
     res.json(movie);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -80,47 +94,90 @@ export const deleteMovie = async (req: Request, res: Response) => {
 };
 
 /**
- * Toggle "favorite" flag for a movie.
- */
-export const toggleFavorite = async (req: Request, res: Response) => {
-  try {
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) return res.status(404).json({ error: "Movie not found" });
-    movie.favorite = !movie.favorite;
-    await movie.save();
-    res.json({ message: "Favorite toggled", favorite: movie.favorite });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
  * Add a new comment to a movie and recalculate average rating.
  */
 export const addComment = async (req: Request, res: Response) => {
   try {
+    const { id } = req.params;
     const { user, text, rating } = req.body;
+
     if (!user || !text) {
-      return res.status(400).json({ error: "user and text required" });
+      return res.status(400).json({ error: "User and text are required." });
     }
 
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) return res.status(404).json({ error: "Movie not found" });
+    const movie = await Movie.findById(id);
+    if (!movie) {
+      return res.status(404).json({ error: "Movie not found." });
+    }
 
-    movie.comments.push({ user, text, rating: rating ?? 3 });
+    // ✅ Add new comment safely
+    movie.comments.push({
+      user,
+      text,
+      rating: Math.max(1, Math.min(5, Number(rating) || 3)), // clamps between 1 and 5
+    });
 
-    // Recalculate average rating based on comments
+    // Recalculate average
+    const avg =
+      movie.comments.reduce((sum, c) => sum + (c.rating || 0), 0) /
+      movie.comments.length;
+
+    movie.rating = Number(avg.toFixed(2));
+
+    await movie.save();
+
+    return res.status(201).json(movie);
+  } catch (error: any) {
+    console.error("Error adding comment:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+};
+
+/**
+ * Delete a comment by id and recalculate global rating.
+ */
+
+export const deleteComment = async (req: Request, res: Response) => {
+  try {
+    const { id, commentId } = req.params;
+
+    const movie = await Movie.findById(id);
+    if (!movie) {
+      return res.status(404).json({ error: "Movie not found." });
+    }
+
+    // Buscar comentario antes de eliminarlo (para saber si existe)
+    const comment = movie.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: "Comment not found." });
+    }
+
+    // Eliminar comentario de forma segura usando .pull()
+    movie.comments.pull(commentId);
+
+    // Recalcular el promedio del rating global
     if (movie.comments.length > 0) {
-      const avg =
-        movie.comments.reduce((sum: number, c: any) => sum + (c.rating || 0), 0) /
-        movie.comments.length;
-      movie.rating = parseFloat(avg.toFixed(2));
+      const total = movie.comments.reduce(
+        (sum, c: any) => sum + (c.rating || 0),
+        0
+      );
+      const avg = total / movie.comments.length;
+      movie.rating = Number(avg.toFixed(2));
+    } else {
+      movie.rating = 0;
     }
 
     await movie.save();
-    res.status(201).json(movie);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+
+    return res.status(200).json({
+      message: "Comment deleted successfully",
+      movie,
+    });
+  } catch (error: any) {
+    console.error("Error deleting comment:", error);
+    return res.status(500).json({
+      error: error.message || "Internal server error",
+    });
   }
 };
 
