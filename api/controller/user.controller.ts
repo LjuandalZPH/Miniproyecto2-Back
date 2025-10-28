@@ -73,17 +73,19 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body };
+    const updates = req.body;
 
-    // Evitar cambio de email por este método
-    delete updates.email;
-
-    // Si el usuario quiere actualizar su contraseña, la encriptamos antes de guardar
     if (updates.password) {
       const salt = await bcrypt.genSalt(10);
       updates.password = await bcrypt.hash(updates.password, salt);
     }
 
+    if (updates.email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(updates.email)) {
+      res.status(400).json({ message: "Formato de correo inválido" });
+      return;
+    }
+
+    // Actualizar usuario
     const updatedUser = await User.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,
