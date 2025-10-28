@@ -13,7 +13,6 @@ const movieSchema = new mongoose.Schema({
   rating: { type: Number, min: 0, max: 5, default: 0 },
   videoUrl: { type: String, required: true },
   image: { type: String, required: true },
-  favorite: { type: Boolean, default: false },
   comments: [commentSchema],
 });
 

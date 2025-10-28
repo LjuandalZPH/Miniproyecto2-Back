@@ -7,14 +7,14 @@
 import dotenv from "dotenv";
 import express from "express";
 import router from "./api/routes/routes";
-import connectDB from "./api/config/database"; // Importa la función de conexión
+import connectDB from "./api/config/database";
+import cors from "cors";
+import path from "path";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-import cors from "cors";
 
 // allow petitions from frontend
 app.use(cors({
@@ -28,9 +28,27 @@ app.use(cors({
 app.use(express.json());
 
 /**
+ * Servir archivos de subtítulos (.vtt) con el Content-Type correcto.
+ * La carpeta "subtitles" debe existir en la raíz del proyecto (junto a server.ts).
+ */
+const VTT_DIR = path.join(process.cwd(), "subtitles");
+console.log("Serving VTT from:", VTT_DIR);
+
+app.use(
+  "/subtitles",
+  express.static(VTT_DIR, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith(".vtt")) {
+        res.setHeader("Content-Type", "text/vtt; charset=utf-8");
+      }
+    },
+  })
+);
+
+/**
  * Ruta principal de prueba.
  */
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("Everything its working, Rejoice PEASANTS");
 });
 
@@ -50,4 +68,3 @@ connectDB();
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-	

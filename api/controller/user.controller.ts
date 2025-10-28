@@ -1,14 +1,15 @@
 /**
  * @fileoverview Controlador para operaciones sobre usuarios.
- * Incluye métodos CRUD y recuperación de contraseña.
+ * Incluye métodos CRUD, recuperación de contraseña y manejo de favoritos.
  * 
  * @module api/controller/user.controller
  */
 
 import { Request, Response } from "express";
 import crypto from "crypto";
-import User from "../models/users"; // Asegúrate que sea "user" y no "users"
-import { sendRecoveryEmail } from "../utils/mailer"; // Crea este archivo
+import User from "../models/users";
+import Movie from "../models/movies"; // Importa el modelo de películas
+import { sendRecoveryEmail } from "../utils/mailer";
 
 /**
  * Crear un nuevo usuario
@@ -44,7 +45,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     };
 
     res.status(201).json({
-      message: "Usuario creado con exito",
+      message: "Usuario creado con éxito",
       user: userResponse,
     });
   } catch (error: any) {
@@ -60,7 +61,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     const users = await User.find({}, "-password");
     res.status(200).json(users);
   } catch (error: any) {
-    res.status(500).json({ message: "Error fetching users", error: error.message });
+    res.status(500).json({ message: "Error al obtener usuarios", error: error.message });
   }
 };
 
@@ -81,16 +82,16 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     }).select("-password");
 
     if (!updatedUser) {
-      res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "Usuario no encontrado" });
       return;
     }
 
     res.status(200).json({
-      message: "User updated successfully",
+      message: "Usuario actualizado con éxito",
       user: updatedUser,
     });
   } catch (error: any) {
-    res.status(500).json({ message: "Error updating user", error: error.message });
+    res.status(500).json({ message: "Error al actualizar usuario", error: error.message });
   }
 };
 
@@ -103,13 +104,13 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     const deletedUser = await User.findByIdAndDelete(id);
 
     if (!deletedUser) {
-      res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "Usuario no encontrado" });
       return;
     }
 
-    res.status(200).json({ message: "User deleted successfully" });
+    res.status(200).json({ message: "Usuario eliminado correctamente" });
   } catch (error: any) {
-    res.status(500).json({ message: "Error deleting user", error: error.message });
+    res.status(500).json({ message: "Error al eliminar usuario", error: error.message });
   }
 };
 
@@ -132,7 +133,7 @@ export const recoverPassword = async (req: Request, res: Response): Promise<void
   // Genera token de recuperación
   const token = crypto.randomBytes(32).toString("hex");
   user.resetPasswordToken = token;
-  user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hora
+  user.resetPasswordExpires = new Date(Date.now() + 3600000);
 
   await user.save();
 
@@ -163,10 +164,79 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 
   user.password = newPassword;
-  user.markModified("password"); 
+  user.markModified("password");
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();
 
   res.status(200).json({ message: "Contraseña cambiada con éxito" });
+};
+
+/* --------------------------------------------------
+   🔥 FAVORITOS - Relación Usuario <-> Películas
+-------------------------------------------------- */
+
+/**
+ * Alternar (añadir o eliminar) una película de los favoritos del usuario
+ */
+export const toggleFavorite = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, movieId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: "Usuario no encontrado" });
+      return;
+    }
+
+    const movie = await Movie.findById(movieId);
+    if (!movie) {
+      res.status(404).json({ message: "Película no encontrada" });
+      return;
+    }
+
+    // Si no existe la lista de favoritos aún, inicialízala
+    if (!user.favorites) user.favorites = [];
+
+    const index = user.favorites.findIndex(
+      (fav) => fav.toString() === movieId
+    );
+
+    if (index === -1) {
+      user.favorites.push(movie._id);
+      await user.save();
+      res.status(200).json({ message: "Película añadida a favoritos" });
+    } else {
+      user.favorites.splice(index, 1);
+      await user.save();
+      res.status(200).json({ message: "Película eliminada de favoritos" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: "Error al actualizar favoritos", error: error.message });
+  }
+};
+
+/**
+ * Obtener todas las películas favoritas de un usuario
+ */
+export const getFavorites = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .populate("favorites")
+      .select("-password");
+
+    if (!user) {
+      res.status(404).json({ message: "Usuario no encontrado" });
+      return;
+    }
+
+    res.status(200).json({
+      message: "Favoritos obtenidos con éxito",
+      favorites: user.favorites,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error al obtener favoritos", error: error.message });
+  }
 };
