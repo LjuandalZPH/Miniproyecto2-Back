@@ -1,14 +1,24 @@
 import axios from "axios";
 import { createClient, type Photo, type Photos } from "pexels";
 
-// Inicializar cliente
+/**
+ * Pexels API key read from environment.
+ * Throws at module initialization time when the key is missing, since the
+ * service cannot operate without it.
+ * @type {string}
+ */
 const apiKey = process.env.PEXELS_API_KEY;
 if (!apiKey) {
   throw new Error("Falta la variable de entorno PEXELS_API_KEY");
 }
+
+/**
+ * Pexels client created with the API key.
+ * Uses the official `pexels` client for photo endpoints.
+ */
 const client = createClient(apiKey);
 
-// Tipos normalizados
+// Normalized types returned by this service
 export type NormalizedPhoto = {
   id: number;
   width: number;

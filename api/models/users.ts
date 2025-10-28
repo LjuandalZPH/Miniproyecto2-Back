@@ -1,28 +1,30 @@
 /**
- * @fileoverview Modelo de usuario para MongoDB usando Mongoose.
- * Incluye validaciones de email y contraseña, así como encriptación de contraseña,
- * campos para recuperación de contraseña y lista de películas favoritas.
+ * @fileoverview User model for MongoDB using Mongoose.
  *
- * @module api/models/user
+ * The schema includes validation for email and password strength, automatic
+ * password hashing, fields for password recovery, and a favorites array that
+ * references the `Movie` collection.
+ *
+ * Module: api/models/user
  */
 
 import mongoose, { Schema, Document } from "mongoose";
 import bcrypt from "bcrypt";
 
 /**
- * Interfaz para el documento de usuario en MongoDB.
- *  * @interface IUser
- * @property {string} firstName - Nombre del usuario
- * @property {string} lastName - Apellido del usuario
- * @property {number} age - Edad del usuario
- * @property {string} email - Email del usuario
- * @property {string} password - Contraseña encriptada del usuario
- * @property {string} [resetPasswordToken] - Token para recuperación de contraseña
- * @property {Date} [resetPasswordExpires] - Fecha de expiración del token
- * @property {function} comparePassword - Método para comparar contraseñas
-
+ * Interface for the User document in MongoDB.
+ *
+ * @interface IUser
+ * @property {string} firstName - User's first name
+ * @property {string} lastName - User's last name
+ * @property {number} age - User's age
+ * @property {string} email - User's email (unique, lowercased)
+ * @property {string} password - Hashed password
+ * @property {string} [resetPasswordToken] - Optional token used for password recovery
+ * @property {Date} [resetPasswordExpires] - Optional token expiry date
+ * @property {mongoose.Types.ObjectId[]} favorites - Array of Movie ObjectIds
+ * @property {(candidatePassword: string) => Promise<boolean>} comparePassword - Method to compare plaintext password with hash
  */
-
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -36,22 +38,23 @@ export interface IUser extends Document {
 }
 
 /**
- * Validaciones de formato.
- */
-
-
-/**
- * Expresión regular para validar la contraseña.
- * Requiere al menos una minúscula, una mayúscula, un número, un caracter especial y mínimo 8 caracteres.
- * @constant
+ * Format validation regular expressions.
  */
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]).{8,}$/;
 
 /**
- * Esquema Mongoose para el usuario.
+ * Mongoose schema for the User collection.
+ *
+ * Fields:
+ * - firstName, lastName: required strings
+ * - age: required number (min 0)
+ * - email: required, unique, validated against `emailRegex`
+ * - password: required, validated against `passwordRegex` (stored hashed)
+ * - resetPasswordToken/resetPasswordExpires: optional recovery fields
+ * - favorites: array of ObjectId references to the `Movie` model
  */
 const UserSchema: Schema<IUser> = new Schema<IUser>(
   {
@@ -85,7 +88,8 @@ const UserSchema: Schema<IUser> = new Schema<IUser>(
 );
 
 /**
- * Middleware para encriptar la contraseña antes de guardar.
+ * Pre-save middleware to hash the password when it has been modified.
+ * Uses bcrypt with a salt rounds of 10.
  */
 UserSchema.pre("save", async function (next) {
   const user = this as IUser;
@@ -101,7 +105,11 @@ UserSchema.pre("save", async function (next) {
 });
 
 /**
- * Método para comparar contraseñas.
+ * Instance method to compare a candidate plaintext password with the stored hash.
+ * Returns a promise that resolves to `true` when passwords match.
+ *
+ * @param {string} candidatePassword - Plaintext password to compare
+ * @returns {Promise<boolean>} Whether the provided password matches the stored hash
  */
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
@@ -109,4 +117,7 @@ UserSchema.methods.comparePassword = async function (
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+/**
+ * Default export: Mongoose model for the User collection.
+ */
 export default mongoose.model<IUser>("User", UserSchema);

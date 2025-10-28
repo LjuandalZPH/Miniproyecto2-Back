@@ -1,6 +1,24 @@
+/**
+ * @fileoverview Subtitle track utilities for handling VTT files.
+ *
+ * This module provides tools for working with WebVTT subtitle files stored
+ * in the `/subtitles` directory. It scans for subtitle files matching a
+ * specific naming pattern and constructs subtitle track metadata for API
+ * responses.
+ */
+
 import fs from "fs";
 import path from "path";
 
+/**
+ * Represents a subtitle track in the application.
+ *
+ * @interface SubtitleItem
+ * @property {string} lang - ISO 639-1 language code (e.g., "es", "en")
+ * @property {string} label - Human-readable language name (e.g., "Español", "English")
+ * @property {string} src - Path to the VTT file, relative to server root
+ * @property {boolean} [default] - Whether this track should be enabled by default
+ */
 export interface SubtitleItem {
   lang: string;   // "es", "en", etc.
   label: string;  // "Español", "English", etc.
@@ -8,6 +26,12 @@ export interface SubtitleItem {
   default?: boolean;
 }
 
+/**
+ * Maps ISO 639-1 language codes to their native names.
+ *
+ * @param {string} lang - ISO 639-1 language code
+ * @returns {string} Native name of the language or uppercased code if not found
+ */
 function labelFromLang(lang: string): string {
   const map: Record<string, string> = {
     es: "Español",
@@ -22,8 +46,19 @@ function labelFromLang(lang: string): string {
 }
 
 /**
- * Construye el array de pistas si existen archivos VTT con el patrón "<movieId>.<lang>.vtt"
- * en la carpeta /subtitles. No persiste en BD; solo es para responder la API.
+ * Build an array of subtitle tracks for a given movie ID.
+ *
+ * Scans the `/subtitles` directory for VTT files matching the pattern
+ * `<movieId>.<lang>.vtt`. Does not persist to the database; intended for
+ * constructing API responses only.
+ *
+ * Behavior:
+ * - Returns empty array if `/subtitles` directory doesn't exist
+ * - Filters for files matching `movieId.<lang>.vtt`
+ * - Sets Spanish track as default if available, otherwise first track
+ *
+ * @param {string} movieId - ID of the movie to find subtitles for
+ * @returns {SubtitleItem[]} Array of subtitle tracks, potentially empty
  */
 export function buildSubtitlesForResponse(movieId: string): SubtitleItem[] {
   const dir = path.join(process.cwd(), "subtitles");
@@ -44,7 +79,7 @@ export function buildSubtitlesForResponse(movieId: string): SubtitleItem[] {
     });
   }
 
-  // Marca una pista por defecto: prioriza "es", si no, la primera
+  
   if (tracks.length > 0) {
     const esIdx = tracks.findIndex(t => t.lang.toLowerCase() === "es");
     const idx = esIdx >= 0 ? esIdx : 0;
