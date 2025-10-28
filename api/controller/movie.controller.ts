@@ -117,7 +117,7 @@ export const addComment = async (req: Request, res: Response) => {
       rating: Math.max(1, Math.min(5, Number(rating) || 3)), // clamps between 1 and 5
     });
 
-    // ✅ Recalculate average
+    // Recalculate average
     const avg =
       movie.comments.reduce((sum, c) => sum + (c.rating || 0), 0) /
       movie.comments.length;
@@ -146,16 +146,16 @@ export const deleteComment = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Movie not found." });
     }
 
-    // ✅ Buscar comentario antes de eliminarlo (para saber si existe)
+    // Buscar comentario antes de eliminarlo (para saber si existe)
     const comment = movie.comments.id(commentId);
     if (!comment) {
       return res.status(404).json({ error: "Comment not found." });
     }
 
-    // ✅ Eliminar comentario de forma segura usando .pull()
+    // Eliminar comentario de forma segura usando .pull()
     movie.comments.pull(commentId);
 
-    // ✅ Recalcular el promedio del rating global
+    // Recalcular el promedio del rating global
     if (movie.comments.length > 0) {
       const total = movie.comments.reduce(
         (sum, c: any) => sum + (c.rating || 0),

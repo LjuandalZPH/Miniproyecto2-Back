@@ -1,6 +1,39 @@
 import { Request, Response } from 'express';
 import { searchPhotos, searchVideos } from '../services/pexels.service';
 
+/**
+ * Controller: Pexels media endpoints
+ *
+ * This module exports handlers for retrieving photos and videos from the
+ * Pexels service. Handlers expect certain query parameters and forward the
+ * request to the service layer functions `searchPhotos` and `searchVideos`.
+ * The controller is responsible for basic validation of required parameters
+ * and mapping query values to the argument shapes expected by the service.
+ */
+
+/**
+ * GET /photos
+ *
+ * Query parameters (all come from req.query):
+ * - query: string (required) - search term
+ * - page: number (optional, default 1)
+ * - per_page: number (optional, default 15, max 80)
+ * - orientation: 'landscape' | 'portrait' | 'square' (optional)
+ * - size: 'large' | 'medium' | 'small' (optional)
+ * - color: string (optional)
+ * - locale: string (optional)
+ *
+ * Behavior:
+ * - Validates that `query` is present and non-empty. If missing, responds
+ *   with 400 and an error JSON payload.
+ * - Calls `searchPhotos` from the service layer with normalized parameters
+ *   and returns `{ photos: data.photos }` on success.
+ * - On unexpected errors, logs the error and responds 502 Bad Gateway.
+ *
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response|void>} Sends an HTTP response; does not throw.
+ */
 export async function getPhotos(req: Request, res: Response) {
   try {
     const query = (req.query.query as string) ?? '';
@@ -24,6 +57,29 @@ export async function getPhotos(req: Request, res: Response) {
 }
 
 export async function getVideos(req: Request, res: Response) {
+/**
+ * GET /videos
+ *
+ * Query parameters (from req.query):
+ * - query: string (required) - search term
+ * - page: number (optional, default 1)
+ * - per_page: number (optional, default 15, max 80)
+ * - min_width: number (optional)
+ * - min_height: number (optional)
+ * - min_duration: number (optional)
+ * - max_duration: number (optional)
+ *
+ * Behavior:
+ * - Validates that `query` is present and non-empty. If missing, responds
+ *   with 400 and an error JSON payload.
+ * - Calls `searchVideos` from the service layer with normalized parameters
+ *   and returns the service response on success.
+ * - On unexpected errors, logs the error and responds 502 Bad Gateway.
+ *
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response|void>} Sends an HTTP response; does not throw.
+ */
   try {
     const query = (req.query.query as string) ?? '';
     if (!query.trim()) {

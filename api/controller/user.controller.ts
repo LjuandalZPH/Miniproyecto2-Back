@@ -1,18 +1,35 @@
 /**
- * @fileoverview Controlador para operaciones sobre usuarios.
- * Incluye métodos CRUD, recuperación de contraseña y manejo de favoritos.
- * 
- * @module api/controller/user.controller
+ * @fileoverview User controller.
+ *
+ * Contains CRUD operations for users, password recovery helpers, and
+ * favorites management (user <-> movies relationship).
+ *
+ * Module: api/controller/user.controller
  */
 
 import { Request, Response } from "express";
 import crypto from "crypto";
 import User from "../models/users";
-import Movie from "../models/movies"; // Importa el modelo de películas
+import Movie from "../models/movies"; // Movie model used for favorites validation
 import { sendRecoveryEmail } from "../utils/mailer";
 
 /**
- * Crear un nuevo usuario
+ * Create a new user.
+ *
+ * Expected payload (req.body): { firstName, lastName, age, email, password }
+ * Validates required fields, ensures the email is unique, persists the
+ * user and returns a sanitized user object (password excluded) on success.
+ *
+ * Responses:
+ * - 201: User created successfully (returns message and user object)
+ * - 400: Missing required fields
+ * - 409: Email already registered
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request (body contains user data)
+ * @param {Response} res - Express response used to send JSON responses
+ * @returns {Promise<void>} Resolves after sending an HTTP response
  */
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -54,7 +71,18 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Obtener todos los usuarios
+ * Retrieve all users (excluding passwords).
+ *
+ * Returns an array of users with the `password` field omitted.
+ *
+ * Responses:
+ * - 200: Array of users
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -66,7 +94,20 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * Actualizar usuario por ID
+ * Update a user by ID.
+ *
+ * Path params: { id }
+ * Body: fields to update (email will be ignored by this endpoint).
+ *
+ * Responses:
+ * - 200: User updated successfully (returns message and user object)
+ * - 404: User not found
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request (params.id identifies the user)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -96,7 +137,19 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Eliminar usuario por ID
+ * Delete a user by ID.
+ *
+ * Path params: { id }
+ *
+ * Responses:
+ * - 200: User deleted
+ * - 404: User not found
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request (params.id)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -115,7 +168,23 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Recuperar contraseña: envía email con token de recuperación
+ * Initiate password recovery for the user identified by email.
+ *
+ * Body: { email }
+ * Behavior:
+ * - Validates that email is present.
+ * - Finds the user by email; if found, generates a reset token and expiry,
+ *   stores them on the user document and sends a recovery email.
+ *
+ * Responses:
+ * - 200: Recovery email sent
+ * - 400: Email required
+ * - 404: User not found
+ *
+ * @async
+ * @param {Request} req - Express request (body.email)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const recoverPassword = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
@@ -144,7 +213,22 @@ export const recoverPassword = async (req: Request, res: Response): Promise<void
 };
 
 /**
- * Resetear contraseña usando el token
+ * Reset a user's password using a valid recovery token.
+ *
+ * Body: { token, newPassword }
+ * Behavior:
+ * - Validates presence of token and newPassword.
+ * - Verifies token exists and has not expired.
+ * - Sets the new password, clears reset fields and saves the user.
+ *
+ * Responses:
+ * - 200: Password changed successfully
+ * - 400: Missing fields or invalid/expired token
+ *
+ * @async
+ * @param {Request} req - Express request (body.token, body.newPassword)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token, newPassword } = req.body;
@@ -173,11 +257,27 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 };
 
 /* --------------------------------------------------
-   🔥 FAVORITOS - Relación Usuario <-> Películas
+  FAVORITES - User <-> Movies relationship
 -------------------------------------------------- */
 
 /**
- * Alternar (añadir o eliminar) una película de los favoritos del usuario
+ * Toggle a movie in the user's favorites list (add or remove).
+ *
+ * Path params: { userId, movieId }
+ * Behavior:
+ * - Validates that both user and movie exist.
+ * - Initializes the favorites array if missing.
+ * - Adds the movie if not present, or removes it if already favorited.
+ *
+ * Responses:
+ * - 200: Movie added or removed from favorites
+ * - 404: User or movie not found
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request (params.userId, params.movieId)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const toggleFavorite = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -217,7 +317,22 @@ export const toggleFavorite = async (req: Request, res: Response): Promise<void>
 };
 
 /**
- * Obtener todas las películas favoritas de un usuario
+ * Get all favorite movies for a user.
+ *
+ * Path params: { userId }
+ * Behavior:
+ * - Loads the user, populates the `favorites` field with movie documents
+ *   and returns the favorites array (password excluded).
+ *
+ * Responses:
+ * - 200: Favorites returned successfully
+ * - 404: User not found
+ * - 500: Server error
+ *
+ * @async
+ * @param {Request} req - Express request (params.userId)
+ * @param {Response} res - Express response
+ * @returns {Promise<void>}
  */
 export const getFavorites = async (req: Request, res: Response): Promise<void> => {
   try {
